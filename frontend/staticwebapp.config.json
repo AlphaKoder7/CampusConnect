@@ -1,0 +1,18 @@
+{
+  "routes": [
+    { "route": "/", "allowedRoles": ["anonymous", "authenticated"] },
+    { "route": "/event-details.html", "allowedRoles": ["anonymous", "authenticated"] },
+
+    { "route": "/api/events", "methods": ["GET"], "allowedRoles": ["anonymous", "authenticated"] },
+    { "route": "/api/events/*", "methods": ["GET"], "allowedRoles": ["anonymous", "authenticated"] },
+
+    { "route": "/api/*", "allowedRoles": ["authenticated"] }
+  ],
+  "responseOverrides": {
+    "401": { "rewrite": "/", "statusCode": 401 }
+  },
+  "globalHeaders": {
+    "Access-Control-Allow-Origin": "*"
+  }
+}
+

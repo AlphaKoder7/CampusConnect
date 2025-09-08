@@ -1,0 +1,27 @@
+{
+  "name": "campusconnect-frontend",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "CampusConnect Frontend - Vanilla HTML/CSS/JS with Bootstrap 5",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "lint": "eslint . --ext js,html --report-unused-disable-directives --max-warnings 0"
+  },
+  "dependencies": {
+    "bootstrap": "^5.3.2"
+  },
+  "devDependencies": {
+    "vite": "^5.0.0",
+    "eslint": "^8.55.0"
+  },
+  "keywords": [
+    "campus",
+    "events",
+    "vanilla-js",
+    "bootstrap"
+  ],
+  "author": "Your Name",
+  "license": "MIT"
+}
