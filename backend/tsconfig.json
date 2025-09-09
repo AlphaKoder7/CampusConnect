@@ -23,6 +23,7 @@
     "noUnusedParameters": false
   },
   "include": [
+    "shared/**/*",
     "createEvent/**/*",
     "getEvents/**/*",
     "getEventById/**/*",
@@ -30,8 +31,7 @@
     "registerForEvent/**/*",
     "unregisterFromEvent/**/*",
     "getRegistrationStatus/**/*",
-    "getEventAttendees/**/*",
-    "shared/**/*"
+    "getEventAttendees/**/*"
   ],
   "exclude": [
     "node_modules",

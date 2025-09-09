@@ -4,16 +4,18 @@ class CampusConnectApp {
         this.currentPage = 'dashboard';
         this.events = [];
         this.user = null;
-        this.apiBaseUrl = 'http://localhost:7071/api'; // Azure Functions local development
+        // Use relative API in production; localhost Functions in local dev
+        this.apiBaseUrl = (location.hostname === 'localhost' && location.port === '5173') ? 'http://localhost:7071/api' : '/api';
         
         this.init();
     }
 
     init() {
         this.setupEventListeners();
-        this.fetchUserStatus();
-        this.loadEvents();
-        this.initializePage();
+        this.fetchUserStatus().finally(() => {
+            this.loadEvents();
+            this.initializePage();
+        });
     }
 
     setupEventListeners() {
@@ -260,14 +262,8 @@ class CampusConnectApp {
         try {
             const response = await fetch(`${this.apiBaseUrl}/events/${eventId}/register`, {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ 
-                    userId: this.user.id,
-                    userEmail: this.user.email,
-                    userName: this.user.name
-                })
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include'
             });
 
             if (response.ok) {
@@ -322,19 +318,20 @@ class CampusConnectApp {
 
     updateAuthUI(isAuthenticated) {
         const profileMenu = document.querySelector('.navbar .dropdown-toggle');
+        const createLink = document.querySelector('[data-page="create-event"]')?.closest('li');
+        const myEventsLink = document.querySelector('[data-page="my-events"]')?.closest('li');
         if (isAuthenticated && this.user) {
             if (profileMenu) profileMenu.innerHTML = `<i class="bi bi-person-circle me-1"></i>${this.escapeHtml(this.user.name)}`;
             const logoutBtn = document.getElementById('logout-btn');
-            if (logoutBtn) {
-                logoutBtn.onclick = (e) => { e.preventDefault(); window.location.href = '/.auth/logout'; };
-            }
+            if (logoutBtn) { logoutBtn.textContent = 'Logout'; logoutBtn.onclick = (e) => { e.preventDefault(); window.location.href = '/.auth/logout'; }; }
+            if (createLink) createLink.classList.remove('d-none');
+            if (myEventsLink) myEventsLink.classList.remove('d-none');
         } else {
             if (profileMenu) profileMenu.innerHTML = `<i class="bi bi-person-circle me-1"></i>Profile`;
             const logoutBtn = document.getElementById('logout-btn');
-            if (logoutBtn) {
-                logoutBtn.textContent = 'Login';
-                logoutBtn.onclick = (e) => { e.preventDefault(); window.location.href = '/.auth/login/google'; };
-            }
+            if (logoutBtn) { logoutBtn.textContent = 'Login'; logoutBtn.onclick = (e) => { e.preventDefault(); window.location.href = '/.auth/login/google'; }; }
+            if (createLink) createLink.classList.add('d-none');
+            if (myEventsLink) myEventsLink.classList.add('d-none');
         }
     }
 
