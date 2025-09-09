@@ -5,27 +5,22 @@ import { v4 as uuidv4 } from 'uuid';
 
 const cosmosService = new CosmosService();
 
-// POST /api/events/{id}/register - Register for an event
+interface SwaClientPrincipal { identityProvider: string; userId: string; userDetails: string; userRoles: string[]; }
+function parseSwaClientPrincipal(headerValue?: string | null): SwaClientPrincipal | null {
+    if (!headerValue) return null;
+    try { const decoded = Buffer.from(headerValue, 'base64').toString('utf8'); const obj = JSON.parse(decoded); return { identityProvider: obj.identityProvider, userId: obj.userId, userDetails: obj.userDetails, userRoles: Array.isArray(obj.userRoles) ? obj.userRoles : [] }; } catch { return null; }
+}
+
+// POST /api/events/{id}/register - Register for an event (SWA auth)
 app.http('registerForEvent', {
     methods: ['POST'],
     authLevel: 'anonymous',
     route: 'events/{id}/register',
     handler: async (request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> => {
     try {
+        const principal = parseSwaClientPrincipal(request.headers.get('x-ms-client-principal'));
+        if (!principal) { return { status: 401, headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }, body: JSON.stringify({ error: 'Unauthorized' }) }; }
         const eventId = request.params.id;
-        const { userId, userEmail, userName, registrationData } = await request.json() as unknown as { userId: string; userEmail: string; userName: string; registrationData?: Record<string, unknown> };
-        
-        // Validate required fields
-        if (!userId || !userEmail || !userName) {
-            return {
-                status: 400,
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Access-Control-Allow-Origin': '*'
-                },
-                body: JSON.stringify({ error: 'Missing required user information' })
-            };
-        }
         
         // Check if event exists
         const event = await cosmosService.getEventById(eventId);
@@ -41,7 +36,7 @@ app.http('registerForEvent', {
         }
         
         // Check if user is already registered
-        const isRegistered = await cosmosService.isUserRegistered(eventId, userId);
+        const isRegistered = await cosmosService.isUserRegistered(eventId, principal.userId);
         if (isRegistered) {
             return {
                 status: 409,
@@ -72,19 +67,17 @@ app.http('registerForEvent', {
         const registration: EventRegistration = {
             id: uuidv4(),
             eventId,
-            userId,
-            userEmail,
-            userName,
-            registrationData: registrationData || {},
+            userId: principal.userId,
+            userEmail: '',
+            userName: principal.userDetails,
+            registrationData: {},
             registeredAt: new Date().toISOString()
         };
         
         const createdRegistration = await cosmosService.registerForEvent(registration);
         
         // Update event attendees list
-        await cosmosService.updateEvent(eventId, {
-            attendees: [...event.attendees, userId]
-        });
+        await cosmosService.updateEvent(eventId, { attendees: [...event.attendees, principal.userId] });
         
         return {
             status: 201,
@@ -109,52 +102,7 @@ app.http('registerForEvent', {
 });
 
 // GET /api/events/{id}/registrations - Get event registrations
-app.http('getEventRegistrations', {
-    methods: ['GET'],
-    authLevel: 'anonymous',
-    route: 'events/{id}/registrations',
-    handler: async (request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> => {
-    try {
-        const eventId = request.params.id;
-        
-        // Check if event exists
-        const event = await cosmosService.getEventById(eventId);
-        if (!event) {
-            return {
-                status: 404,
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Access-Control-Allow-Origin': '*'
-                },
-                body: JSON.stringify({ error: 'Event not found' })
-            };
-        }
-        
-        // TODO: Check if user has permission to view registrations (creator or admin)
-        
-        const registrations = await cosmosService.getEventRegistrations(eventId);
-        
-        return {
-            status: 200,
-            headers: {
-                'Content-Type': 'application/json',
-                'Access-Control-Allow-Origin': '*'
-            },
-            body: JSON.stringify(registrations)
-        };
-    } catch (error) {
-        context.error('Error fetching event registrations:', error);
-        return {
-            status: 500,
-            headers: {
-                'Content-Type': 'application/json',
-                'Access-Control-Allow-Origin': '*'
-            },
-            body: JSON.stringify({ error: 'Failed to fetch registrations' })
-        };
-    }
-    }
-});
+// GET /api/events/{id}/registration - added below
 
 // GET /api/users/{id}/registrations - Get user's event registrations
 app.http('getUserRegistrations', {

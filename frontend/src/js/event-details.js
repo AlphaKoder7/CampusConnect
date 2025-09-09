@@ -25,7 +25,7 @@ async function loadEvent() {
       throw new Error(`Failed to fetch event: ${res.status}`);
     }
     const event = await res.json();
-    renderEvent(event);
+    await renderEvent(event);
   } catch (e) {
     hide('#details-loading');
     const err = qs('#details-error');
@@ -35,7 +35,7 @@ async function loadEvent() {
   }
 }
 
-function renderEvent(event) {
+async function renderEvent(event) {
   hide('#details-loading');
 
   qs('#event-title').textContent = event.title;
@@ -51,29 +51,77 @@ function renderEvent(event) {
   `;
 
   const registerBtn = qs('#register-btn');
+  const statusRes = await fetch(`${apiBaseUrl}/events/${event.id}/registration`, { credentials: 'include' });
+  if (statusRes.status === 401) {
+    registerBtn.textContent = 'Login to Register';
+    registerBtn.classList.replace('btn-primary', 'btn-outline-primary');
+    registerBtn.onclick = () => { window.location.href = '/.auth/login/google'; };
+  } else if (statusRes.ok) {
+    const { isRegistered } = await statusRes.json();
+    if (isRegistered) {
+      renderRegisteredState(event, registerBtn);
+    } else {
+      renderUnregisteredState(event, registerBtn);
+    }
+  }
+
+  show('#event-details');
+}
+
+function renderUnregisteredState(event, registerBtn) {
+  registerBtn.textContent = 'Register for Event';
+  registerBtn.disabled = false;
+  registerBtn.classList.add('btn-primary');
+  registerBtn.classList.remove('btn-outline-secondary');
   registerBtn.onclick = async () => {
     try {
-      const res = await fetch(`${apiBaseUrl}/events/${event.id}/register`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: 'demo-user', userEmail: 'demo@campus.edu', userName: 'Demo User' })
-      });
+      const res = await fetch(`${apiBaseUrl}/events/${event.id}/register`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include' });
       if (res.ok) {
-        registerBtn.textContent = 'Registered';
-        registerBtn.disabled = true;
+        renderRegisteredState(event, registerBtn);
       } else if (res.status === 409) {
-        registerBtn.textContent = 'Already Registered';
-        registerBtn.classList.replace('btn-primary', 'btn-outline-secondary');
-        registerBtn.disabled = true;
+        renderRegisteredState(event, registerBtn);
+      } else if (res.status === 401) {
+        window.location.href = '/.auth/login/google';
       } else {
         alert('Failed to register. Please try again.');
       }
-    } catch (e) {
+    } catch {
       alert('Failed to register. Please try again.');
     }
   };
+}
 
-  show('#event-details');
+function renderRegisteredState(event, registerBtn) {
+  registerBtn.textContent = 'You are Registered';
+  registerBtn.classList.remove('btn-primary');
+  registerBtn.classList.add('btn-outline-secondary');
+  registerBtn.disabled = true;
+
+  // Add an Un-register button next to it
+  let unreg = document.getElementById('unregister-btn');
+  if (!unreg) {
+    unreg = document.createElement('button');
+    unreg.id = 'unregister-btn';
+    unreg.className = 'btn btn-outline-danger btn-sm ms-2';
+    unreg.textContent = 'Un-register';
+    registerBtn.parentElement.appendChild(unreg);
+  }
+  unreg.onclick = async () => {
+    try {
+      const res = await fetch(`${apiBaseUrl}/events/${event.id}/register`, { method: 'DELETE', credentials: 'include' });
+      if (res.status === 204 || res.status === 200) {
+        // Reset to unregistered state
+        if (unreg.parentElement) unreg.parentElement.removeChild(unreg);
+        renderUnregisteredState(event, registerBtn);
+      } else if (res.status === 401) {
+        window.location.href = '/.auth/login/google';
+      } else {
+        alert('Failed to un-register. Please try again.');
+      }
+    } catch {
+      alert('Failed to un-register. Please try again.');
+    }
+  };
 }
 
 document.addEventListener('DOMContentLoaded', loadEvent);

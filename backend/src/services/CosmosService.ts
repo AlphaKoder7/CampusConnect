@@ -249,6 +249,33 @@ export class CosmosService {
         return resources.length > 0;
     }
 
+    async deleteRegistration(eventId: string, userId: string): Promise<void> {
+        await this.initialize();
+        const { resources } = await this.registrationsContainer.items
+            .query<EventRegistration>({
+                query: 'SELECT * FROM c WHERE c.eventId = @eventId AND c.userId = @userId',
+                parameters: [
+                    { name: '@eventId', value: eventId },
+                    { name: '@userId', value: userId }
+                ]
+            })
+            .fetchAll();
+        for (const reg of resources) {
+            await this.registrationsContainer.item(reg.id, reg.id).delete();
+        }
+    }
+
+    async getAttendees(eventId: string): Promise<EventRegistration[]> {
+        await this.initialize();
+        const { resources } = await this.registrationsContainer.items
+            .query<EventRegistration>({
+                query: 'SELECT * FROM c WHERE c.eventId = @eventId ORDER BY c.registeredAt ASC',
+                parameters: [{ name: '@eventId', value: eventId }]
+            })
+            .fetchAll();
+        return resources;
+    }
+
     // Chat Messages
     async getChatMessages(eventId: string): Promise<ChatMessage[]> {
         await this.initialize();
