@@ -2,7 +2,6 @@
   "name": "campusconnect-backend",
   "version": "1.0.0",
   "description": "CampusConnect Backend - Azure Functions with TypeScript",
-  "main": "dist/src/functions/*.js",
   "scripts": {
     "build": "tsc",
     "watch": "tsc -w",
@@ -18,10 +17,10 @@
     "@azure/identity": "^4.1.0",
     "@azure/web-pubsub": "^1.2.0",
     "@azure/maps-search": "^1.0.0-beta.2",
+    "@azure/functions": "^4.0.0",
     "uuid": "^9.0.1"
   },
   "devDependencies": {
-    "@azure/functions": "^4.0.0",
     "@types/node": "^20.0.0",
     "@types/jest": "^29.5.0",
     "@types/uuid": "^9.0.7",
