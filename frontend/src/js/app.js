@@ -4,7 +4,8 @@ class CampusConnectApp {
         this.currentPage = 'dashboard';
         this.events = [];
         this.user = null;
-        this.apiBaseUrl = 'http://localhost:7071/api'; // Azure Functions local development
+        // Use relative API in production; localhost Functions in local dev
+        this.apiBaseUrl = (location.hostname === 'localhost' && location.port === '5173') ? 'http://localhost:7071/api' : '/api';
         
         this.init();
     }
