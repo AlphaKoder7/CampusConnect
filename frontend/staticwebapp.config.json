@@ -13,6 +13,9 @@
   },
   "globalHeaders": {
     "Access-Control-Allow-Origin": "*"
+  },
+  "platform": {
+    "apiRuntime": "node:20"
   }
 }
 
