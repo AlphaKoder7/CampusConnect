@@ -8,6 +8,7 @@ export interface EventDocument extends Document {
   location: string;
   type?: string;
   isPrivate?: boolean;
+  isOfficial?: boolean;
   capacity?: number | null;
   creatorId: string;
   creatorName?: string;
@@ -23,6 +24,7 @@ const EventSchema = new Schema<EventDocument>({
   location: { type: String, required: true },
   type: { type: String, default: 'other' },
   isPrivate: { type: Boolean, default: false },
+  isOfficial: { type: Boolean, default: false },
   capacity: { type: Number, default: null },
   creatorId: { type: String, required: true },
   creatorName: { type: String, default: '' },

@@ -51,6 +51,18 @@
                             <li><a class="dropdown-item" href="#" data-page="my-events">My Events</a></li>
                             <li><hr class="dropdown-divider"></li>
                             <li><a class="dropdown-item" href="#" id="logout-btn">Logout</a></li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li class="px-3 py-2 small text-muted">Quick Login</li>
+                            <li class="px-3 pb-2">
+                                <div class="input-group input-group-sm">
+                                    <input id="quick-login-name" class="form-control" placeholder="username" />
+                                    <select id="quick-login-role" class="form-select" style="max-width: 130px;">
+                                        <option value="student">Student</option>
+                                        <option value="faculty">Faculty</option>
+                                    </select>
+                                    <button id="quick-login-btn" class="btn btn-primary">Go</button>
+                                </div>
+                            </li>
                         </ul>
                     </li>
                 </ul>
@@ -171,6 +183,15 @@
                                     <label for="event-capacity" class="form-label">Maximum Attendees</label>
                                     <input type="number" class="form-control" id="event-capacity" min="1">
                                 </div>
+
+                                <div class="mb-3 d-none" id="official-wrap">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="event-official" disabled>
+                                        <label class="form-check-label" for="event-official">
+                                            Mark as Official Event (Faculty only)
+                                        </label>
+                                    </div>
+                                </div>
                                 
                                 <div class="d-grid gap-2 d-md-flex justify-content-md-end">
                                     <button type="button" class="btn btn-outline-secondary me-md-2" id="cancel-event">Cancel</button>
@@ -196,7 +217,17 @@
                     <div class="card">
                         <div class="card-body">
                             <h5 class="card-title">Profile Information</h5>
-                            <p class="text-muted">Profile management coming soon...</p>
+                            <form id="change-password-form">
+                                <div class="mb-3">
+                                    <label class="form-label" for="current-password">Current Password</label>
+                                    <input class="form-control" id="current-password" type="password" required />
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label" for="new-password">New Password</label>
+                                    <input class="form-control" id="new-password" type="password" required />
+                                </div>
+                                <button class="btn btn-primary" type="submit">Change Password</button>
+                            </form>
                         </div>
                     </div>
                 </div>

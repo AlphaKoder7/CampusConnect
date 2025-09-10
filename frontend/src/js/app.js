@@ -4,6 +4,10 @@ class CampusConnectApp {
         this.currentPage = 'dashboard';
         this.events = [];
         this.user = null;
+        this.map = null;
+        this.markersLayer = null;
+        this.leafletLoaded = false;
+        this.geocodeCache = new Map();
         // Local-first API base (Express server)
         this.apiBaseUrl = (location.hostname === 'localhost' && location.port === '5173') ? 'http://localhost:3000/api' : '/api';
         
@@ -53,6 +57,55 @@ class CampusConnectApp {
                 this.handleLogout();
             });
         }
+
+        // Change password form
+        const changeForm = document.getElementById('change-password-form');
+        if (changeForm) {
+            changeForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const cpEl = document.getElementById('current-password');
+                const npEl = document.getElementById('new-password');
+                const currentPassword = cpEl && 'value' in cpEl ? cpEl.value : '';
+                const newPassword = npEl && 'value' in npEl ? npEl.value : '';
+                if (!currentPassword || !newPassword) { this.showError('Enter both passwords'); return; }
+                const res = await fetch(`${this.apiBaseUrl}/user/change-password`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({ currentPassword, newPassword })
+                });
+                if (res.ok) {
+                    this.showSuccess('Password changed');
+                    if (cpEl && 'value' in cpEl) cpEl.value = '';
+                    if (npEl && 'value' in npEl) npEl.value = '';
+                } else {
+                    const err = await res.json().catch(()=>({error:'Failed'}));
+                    this.showError(err.error || 'Failed to change password');
+                }
+            });
+        }
+
+        // Quick mock login controls in navbar dropdown
+        const quickLoginBtn = document.getElementById('quick-login-btn');
+        if (quickLoginBtn) {
+            quickLoginBtn.addEventListener('click', async (e) => {
+                e.preventDefault();
+                const nameEl = document.getElementById('quick-login-name');
+                const roleEl = document.getElementById('quick-login-role');
+                const name = nameEl?.value?.trim();
+                const role = roleEl?.value || 'student';
+                if (!name) { this.showError('Enter a username'); return; }
+                const res = await fetch(`${this.apiBaseUrl}/login`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include', body: JSON.stringify({ username: name, role }) });
+                if (res.ok) {
+                    const u = await res.json();
+                    this.user = { id: u.userId, name: u.userDetails, role: u.role };
+                    this.updateAuthUI(true);
+                    this.loadEvents();
+                } else {
+                    this.showError('Login failed');
+                }
+            });
+        }
     }
 
     navigateToPage(page) {
@@ -91,6 +144,7 @@ class CampusConnectApp {
                 break;
             case 'create-event':
                 this.resetCreateEventForm();
+                this.updateOfficialControl();
                 break;
             case 'profile':
                 this.loadUserProfile();
@@ -103,7 +157,7 @@ class CampusConnectApp {
 
     async loadEvents() {
         try {
-            const response = await fetch(`${this.apiBaseUrl}/events`);
+            const response = await fetch(`${this.apiBaseUrl}/events`, { credentials: 'include' });
             if (response.ok) {
                 this.events = await response.json();
                 this.renderEvents();
@@ -150,7 +204,7 @@ class CampusConnectApp {
         
         return `
             <div class="col-lg-4 col-md-6 mb-4">
-                <div class="card event-card h-100" onclick="window.location.href='event-details.html?id=${event.id}'" style="cursor:pointer;">
+                <div class="card event-card h-100" onclick="window.location.href='event-details.html?id=${event._id || event.id}'" style="cursor:pointer;">
                     <div class="card-header d-flex justify-content-between align-items-center">
                         <h6 class="mb-0 text-truncate">${this.escapeHtml(event.title)}</h6>
                         <div>
@@ -181,7 +235,7 @@ class CampusConnectApp {
                             <div class="d-flex justify-content-between align-items-center">
                                 <span class="badge bg-${this.getEventTypeColor(event.type)}">${event.type}</span>
                                 ${isUpcoming
-                                    ? `<button class="btn btn-sm btn-outline-primary" onclick="event.stopPropagation(); app.registerForEvent('${event.id}')">Register</button>`
+                                    ? `<button class="btn btn-sm btn-outline-primary" onclick="event.stopPropagation(); app.registerForEvent('${event._id || event.id}')">Register</button>`
                                     : '<span class="text-muted small">Event ended</span>'}
                             </div>
                         </div>
@@ -213,7 +267,7 @@ class CampusConnectApp {
             type: document.getElementById('event-type').value,
             isPrivate: document.getElementById('event-private').checked,
             capacity: document.getElementById('event-capacity').value || null,
-            creatorId: this.user?.id
+            isOfficial: document.getElementById('event-official')?.checked === true
         };
 
         try {
@@ -223,6 +277,7 @@ class CampusConnectApp {
                     'Content-Type': 'application/json',
                     'Accept': 'application/json'
                 },
+                credentials: 'include',
                 body: JSON.stringify(eventData)
             });
 
@@ -263,6 +318,7 @@ class CampusConnectApp {
             const response = await fetch(`${this.apiBaseUrl}/events/${eventId}/register`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
                 body: JSON.stringify({ userId: this.user.id, userName: this.user.name })
             });
 
@@ -289,12 +345,113 @@ class CampusConnectApp {
     }
 
     initializeMap() {
-        // Placeholder for Azure Maps integration
-        console.log('Initializing campus map...');
-        // TODO: Implement Azure Maps integration
+        // Initialize Leaflet map with OSM tiles and add event markers
+        this.initLeafletAndMap();
+    }
+
+    async initLeafletAndMap() {
+        await this.ensureLeafletLoaded();
+
+        const mapContainer = document.getElementById('campus-map');
+        if (!mapContainer) return;
+
+        // Create map once
+        if (!this.map) {
+            this.map = L.map('campus-map').setView([20.0, 0.0], 2);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                maxZoom: 19,
+                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+            }).addTo(this.map);
+            this.markersLayer = L.layerGroup().addTo(this.map);
+        } else {
+            this.map.invalidateSize();
+            this.markersLayer.clearLayers();
+        }
+
+        // Load events and place markers
+        try {
+            const res = await fetch(`${this.apiBaseUrl}/events`, { credentials: 'include' });
+            if (!res.ok) return;
+            const events = await res.json();
+
+            const markerPromises = events.map(async (ev) => {
+                const id = ev._id || ev.id;
+                const title = ev.title;
+                const location = ev.location;
+
+                let coords = null;
+                if (ev.coordinates && Array.isArray(ev.coordinates) && ev.coordinates.length === 2) {
+                    coords = { lat: ev.coordinates[0], lon: ev.coordinates[1] };
+                } else if (typeof location === 'string' && location.trim().length > 0) {
+                    coords = await this.geocodeLocation(location);
+                }
+
+                if (coords) {
+                    const marker = L.marker([coords.lat, coords.lon]);
+                    marker.bindPopup(`
+                        <div>
+                            <strong>${this.escapeHtml(title)}</strong><br/>
+                            <a href="event-details.html?id=${id}">View details</a>
+                        </div>
+                    `);
+                    marker.addTo(this.markersLayer);
+                    return [coords.lat, coords.lon];
+                }
+                return null;
+            });
+
+            const placed = (await Promise.all(markerPromises)).filter(Boolean);
+            if (placed.length > 0) {
+                const bounds = L.latLngBounds(placed.map(([lat, lon]) => [lat, lon]));
+                this.map.fitBounds(bounds.pad(0.2));
+            } else {
+                this.map.setView([20.0, 0.0], 2);
+            }
+        } catch (e) {
+            console.error('Failed to load events for map:', e);
+        }
+    }
+
+    async ensureLeafletLoaded() {
+        if (this.leafletLoaded) return;
+        await Promise.all([
+            new Promise((resolve) => {
+                const link = document.createElement('link');
+                link.rel = 'stylesheet';
+                link.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
+                link.onload = resolve;
+                document.head.appendChild(link);
+            }),
+            new Promise((resolve) => {
+                const script = document.createElement('script');
+                script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
+                script.onload = resolve;
+                document.body.appendChild(script);
+            })
+        ]);
+        this.leafletLoaded = true;
+    }
+
+    async geocodeLocation(query) {
+        if (this.geocodeCache.has(query)) return this.geocodeCache.get(query);
+        try {
+            const url = `https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(query)}`;
+            const res = await fetch(url, { headers: { 'Accept-Language': 'en' } });
+            if (!res.ok) return null;
+            const data = await res.json();
+            if (Array.isArray(data) && data.length > 0) {
+                const coords = { lat: parseFloat(data[0].lat), lon: parseFloat(data[0].lon) };
+                this.geocodeCache.set(query, coords);
+                return coords;
+            }
+        } catch (e) {
+            console.warn('Geocoding failed for', query, e);
+        }
+        return null;
     }
 
     async fetchUserStatus() {
+        const isLoginPage = /\/login\.html$/i.test(location.pathname);
         try {
             const res = await fetch(`${this.apiBaseUrl}/getUser`, { credentials: 'include' });
             if (res.ok) {
@@ -302,17 +459,19 @@ class CampusConnectApp {
                 this.user = {
                     id: user.userId,
                     name: user.userDetails,
-                    email: '',
-                    role: 'authenticated'
+                    email: user.email || '',
+                    role: user.role || 'student'
                 };
                 this.updateAuthUI(true);
             } else if (res.status === 401) {
-                this.user = null;
-                this.updateAuthUI(false);
+                if (!isLoginPage) {
+                    window.location.href = '/login.html';
+                }
             }
         } catch (e) {
-            this.user = null;
-            this.updateAuthUI(false);
+            if (!isLoginPage) {
+                window.location.href = '/login.html';
+            }
         }
     }
 
@@ -326,12 +485,29 @@ class CampusConnectApp {
             if (logoutBtn) { logoutBtn.textContent = 'Logout'; logoutBtn.onclick = async (e) => { e.preventDefault(); this.user = null; this.updateAuthUI(false); }; }
             if (createLink) createLink.classList.remove('d-none');
             if (myEventsLink) myEventsLink.classList.remove('d-none');
+            this.updateOfficialControl();
         } else {
             if (profileMenu) profileMenu.innerHTML = `<i class="bi bi-person-circle me-1"></i>Profile`;
             const logoutBtn = document.getElementById('logout-btn');
-            if (logoutBtn) { logoutBtn.textContent = 'Login'; logoutBtn.onclick = async (e) => { e.preventDefault(); const name = prompt('Enter username'); if (!name) return; const res = await fetch(`${this.apiBaseUrl}/login`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: name }) }); if (res.ok) { const u = await res.json(); this.user = { id: u.userId, name: u.userDetails }; this.updateAuthUI(true); } }; }
+            if (logoutBtn) { logoutBtn.textContent = 'Login'; logoutBtn.onclick = async (e) => { e.preventDefault(); const name = prompt('Enter username'); if (!name) return; const role = (prompt('Enter role: student/faculty') || 'student').toLowerCase(); const res = await fetch(`${this.apiBaseUrl}/login`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: name, role }) }); if (res.ok) { const u = await res.json(); this.user = { id: u.userId, name: u.userDetails, role: u.role }; this.updateAuthUI(true); } }; }
             if (createLink) createLink.classList.add('d-none');
             if (myEventsLink) myEventsLink.classList.add('d-none');
+            this.updateOfficialControl();
+        }
+    }
+
+    updateOfficialControl() {
+        const wrap = document.getElementById('official-wrap');
+        const checkbox = document.getElementById('event-official');
+        if (!wrap || !checkbox) return;
+        const isFaculty = !!this.user && (this.user.role === 'faculty');
+        if (isFaculty) {
+            wrap.classList.remove('d-none');
+            checkbox.removeAttribute('disabled');
+        } else {
+            wrap.classList.add('d-none');
+            checkbox.setAttribute('disabled', 'true');
+            checkbox.checked = false;
         }
     }
 
@@ -348,8 +524,11 @@ class CampusConnectApp {
     }
 
     handleLogout() {
-        // With SWA auth, redirect to built-in logout
-        window.location.href = '/.auth/logout';
+        fetch(`${this.apiBaseUrl}/logout`, { method: 'POST', credentials: 'include' })
+            .finally(() => {
+                this.user = null;
+                window.location.href = '/login.html';
+            });
     }
 
     showSuccess(message) {

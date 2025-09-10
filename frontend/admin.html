@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin - CampusConnect</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <script>
+    const apiBase = (location.hostname === 'localhost' && location.port === '5173') ? 'http://localhost:3000/api' : '/api';
+    async function addUser() {
+      const email = document.getElementById('invite-email').value.trim();
+      const role = document.getElementById('invite-role').value;
+      if (!email) { show('Enter email','danger'); return; }
+      const res = await fetch(`${apiBase}/admin/add-user`, { method:'POST', headers:{'Content-Type':'application/json'}, credentials: 'include', body: JSON.stringify({ email, role }) });
+      if (res.ok) { show('Invitation sent','success'); } else { const err = await res.json().catch(()=>({error:'Failed'})); show(err.error||'Failed','danger'); }
+    }
+    function show(msg, type) {
+      const b = document.getElementById('msg');
+      b.className = `alert alert-${type}`;
+      b.textContent = msg;
+      b.classList.remove('d-none');
+    }
+  </script>
+</head>
+<body class="bg-light">
+  <div class="container py-5">
+    <h1 class="h3 mb-4">Admin Panel</h1>
+    <div id="msg" class="alert d-none"></div>
+    <div class="card">
+      <div class="card-body">
+        <h5 class="card-title">Add New User</h5>
+        <div class="row g-2 align-items-end">
+          <div class="col-md-6">
+            <label class="form-label" for="invite-email">Email</label>
+            <input class="form-control" id="invite-email" type="email" />
+          </div>
+          <div class="col-md-3">
+            <label class="form-label" for="invite-role">Role</label>
+            <select class="form-select" id="invite-role">
+              <option value="student">Student</option>
+              <option value="faculty">Faculty</option>
+            </select>
+          </div>
+          <div class="col-md-3">
+            <button class="btn btn-primary w-100" onclick="addUser()">Send Invitation</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>
+
+

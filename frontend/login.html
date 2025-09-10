@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Login - CampusConnect</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    body { background: #f7f9fc; }
+    .card { border: 0; box-shadow: 0 0.5rem 1rem rgba(0,0,0,.05); }
+  </style>
+</head>
+<body>
+  <div class="container py-5">
+    <div class="row justify-content-center">
+      <div class="col-md-6 col-lg-5">
+        <div class="text-center mb-4">
+          <h1 class="h3">CampusConnect</h1>
+          <p class="text-muted mb-0">Please sign in to continue</p>
+        </div>
+        <div id="msg" class="alert d-none" role="alert"></div>
+        <div class="card">
+          <div class="card-body p-4">
+            <form id="login-form" novalidate>
+              <div class="mb-3">
+                <label for="email" class="form-label">Email</label>
+                <input type="email" id="email" class="form-control" placeholder="you@example.com" required>
+              </div>
+              <div class="mb-3">
+                <label for="password" class="form-label">Password</label>
+                <input type="password" id="password" class="form-control" placeholder="••••••••" required>
+              </div>
+              <div class="d-grid">
+                <button type="submit" class="btn btn-primary">Login</button>
+              </div>
+            </form>
+            <hr class="my-4">
+            <div class="d-flex align-items-end gap-2">
+              <div class="flex-grow-1">
+                <label for="dev-name" class="form-label">Dev Quick Login (username)</label>
+                <input id="dev-name" class="form-control" placeholder="devuser">
+              </div>
+              <div>
+                <label for="dev-role" class="form-label">Role</label>
+                <select id="dev-role" class="form-select">
+                  <option value="student">Student</option>
+                  <option value="faculty">Faculty</option>
+                  <option value="admin">Admin</option>
+                </select>
+              </div>
+            </div>
+            <div class="d-grid mt-2">
+              <button id="dev-login" class="btn btn-outline-secondary">Dev Quick Login</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const apiBase = (location.hostname === 'localhost' && location.port === '5173') ? 'http://localhost:3000/api' : '/api';
+
+    function show(msg, type) {
+      const el = document.getElementById('msg');
+      el.className = `alert alert-${type}`;
+      el.textContent = msg;
+      el.classList.remove('d-none');
+    }
+
+    document.getElementById('login-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const email = document.getElementById('email').value.trim();
+      const password = document.getElementById('password').value;
+      if (!email || !password) { show('Enter email and password', 'danger'); return; }
+      try {
+        const res = await fetch(`${apiBase}/login-account`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ email, password })
+        });
+        if (res.ok) {
+          const data = await res.json().catch(() => ({}));
+          const redirectTo = data && data.redirectTo ? data.redirectTo : '/index.html';
+          window.location.href = redirectTo;
+        } else {
+          const err = await res.json().catch(() => ({ error: 'Login failed' }));
+          show(err.error || 'Login failed', 'danger');
+        }
+      } catch (e) {
+        show('Network error', 'danger');
+      }
+    });
+
+    document.getElementById('dev-login').addEventListener('click', async () => {
+      const name = document.getElementById('dev-name').value.trim();
+      const role = document.getElementById('dev-role').value;
+      if (!name) { show('Enter a dev username', 'danger'); return; }
+      try {
+        const res = await fetch(`${apiBase}/login`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username: name, role })
+        });
+        if (res.ok) {
+          const data = await res.json().catch(() => ({}));
+          const redirectTo = data && data.redirectTo ? data.redirectTo : '/index.html';
+          window.location.href = redirectTo;
+        } else {
+          show('Dev login failed', 'danger');
+        }
+      } catch (e) {
+        show('Network error', 'danger');
+      }
+    });
+  </script>
+</body>
+</html>
+
+
