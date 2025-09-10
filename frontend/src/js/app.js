@@ -4,8 +4,8 @@ class CampusConnectApp {
         this.currentPage = 'dashboard';
         this.events = [];
         this.user = null;
-        // Use relative API in production; localhost Functions in local dev
-        this.apiBaseUrl = (location.hostname === 'localhost' && location.port === '5173') ? 'http://localhost:7071/api' : '/api';
+        // Local-first API base (Express server)
+        this.apiBaseUrl = (location.hostname === 'localhost' && location.port === '5173') ? 'http://localhost:3000/api' : '/api';
         
         this.init();
     }
@@ -263,7 +263,7 @@ class CampusConnectApp {
             const response = await fetch(`${this.apiBaseUrl}/events/${eventId}/register`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                credentials: 'include'
+                body: JSON.stringify({ userId: this.user.id, userName: this.user.name })
             });
 
             if (response.ok) {
@@ -323,13 +323,13 @@ class CampusConnectApp {
         if (isAuthenticated && this.user) {
             if (profileMenu) profileMenu.innerHTML = `<i class="bi bi-person-circle me-1"></i>${this.escapeHtml(this.user.name)}`;
             const logoutBtn = document.getElementById('logout-btn');
-            if (logoutBtn) { logoutBtn.textContent = 'Logout'; logoutBtn.onclick = (e) => { e.preventDefault(); window.location.href = '/.auth/logout'; }; }
+            if (logoutBtn) { logoutBtn.textContent = 'Logout'; logoutBtn.onclick = async (e) => { e.preventDefault(); this.user = null; this.updateAuthUI(false); }; }
             if (createLink) createLink.classList.remove('d-none');
             if (myEventsLink) myEventsLink.classList.remove('d-none');
         } else {
             if (profileMenu) profileMenu.innerHTML = `<i class="bi bi-person-circle me-1"></i>Profile`;
             const logoutBtn = document.getElementById('logout-btn');
-            if (logoutBtn) { logoutBtn.textContent = 'Login'; logoutBtn.onclick = (e) => { e.preventDefault(); window.location.href = '/.auth/login/google'; }; }
+            if (logoutBtn) { logoutBtn.textContent = 'Login'; logoutBtn.onclick = async (e) => { e.preventDefault(); const name = prompt('Enter username'); if (!name) return; const res = await fetch(`${this.apiBaseUrl}/login`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: name }) }); if (res.ok) { const u = await res.json(); this.user = { id: u.userId, name: u.userDetails }; this.updateAuthUI(true); } }; }
             if (createLink) createLink.classList.add('d-none');
             if (myEventsLink) myEventsLink.classList.add('d-none');
         }

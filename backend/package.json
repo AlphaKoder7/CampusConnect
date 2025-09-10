@@ -1,32 +1,32 @@
 {
   "name": "campusconnect-backend",
   "version": "1.0.0",
-  "description": "CampusConnect Backend - Azure Functions with TypeScript",
+  "description": "CampusConnect Backend - Express + MongoDB (local-first)",
   "scripts": {
     "build": "tsc",
-    "watch": "tsc -w",
-    "prestart": "npm run build",
-    "start": "func start",
+    "dev": "ts-node-dev --respawn --transpile-only src/server.ts",
+    "start": "node dist/server.js",
     "test": "jest",
     "lint": "eslint . --ext .ts",
     "lint:fix": "eslint . --ext .ts --fix"
   },
   "dependencies": {
-    "@azure/cosmos": "^3.16.4",
-    "@azure/storage-blob": "^12.14.0",
-    "@azure/identity": "^3.3.2",
-    "@azure/web-pubsub": "^1.2.0",
-    "@azure/maps-search": "^1.0.0-beta.2",
-    "@azure/functions": "^4.0.0",
+    "express": "^4.19.2",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "mongoose": "^8.6.3",
     "uuid": "^9.0.1"
   },
   "devDependencies": {
     "@types/node": "^20.0.0",
+    "@types/express": "^4.17.21",
+    "@types/cors": "^2.8.17",
     "@types/jest": "^29.5.0",
     "@types/uuid": "^9.0.7",
     "typescript": "^5.0.0",
     "jest": "^29.5.0",
     "ts-jest": "^29.1.0",
+    "ts-node-dev": "^2.0.0",
     "eslint": "^8.55.0",
     "@typescript-eslint/eslint-plugin": "^6.0.0",
     "@typescript-eslint/parser": "^6.0.0"
@@ -34,17 +34,7 @@
   "engines": {
     "node": ">=20.0.0"
   },
-  "resolutions": {
-    "@azure/core-auth": "^1.3.0",
-    "@azure/core-client": "^1.6.0",
-    "@azure/core-rest-pipeline": "^1.8.0",
-    "@azure/core-tracing": "^1.0.0",
-    "@azure/core-util": "^1.0.0",
-    "@azure/core-xml": "^1.0.0",
-    "@azure/logger": "^1.0.0",
-    "@azure/storage-common": "^12.0.0",
-    "@typespec/ts-http-runtime": "^0.1.0"
-  },
+  "resolutions": {},
   "keywords": [
     "azure-functions",
     "typescript",

@@ -1,8 +1,0 @@
-{
-  "IsEncrypted": false,
-  "Values": {
-    "AzureWebJobsStorage": "UseDevelopmentStorage=true",
-    "FUNCTIONS_WORKER_RUNTIME": "node",
-    "COSMOS_DB_CONNECTION_STRING": "your-cosmos-db-connection-string-here"
-  }
-}
